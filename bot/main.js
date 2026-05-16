@@ -1,7 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
+const ADMINS = new Set(['61590007074814', '61589579883863']);
 const commands = new Map();
+
+function isAdmin(senderID) {
+  return ADMINS.has(String(senderID));
+}
 
 function loadCommands() {
   const commandsPath = path.join(__dirname, 'Commands');
@@ -29,7 +34,7 @@ async function handleMessage(api, event) {
 
   console.log(`[مستر] 📩 رسالة من ${senderID} في ${threadID}: "${body.substring(0, 60)}"`);
 
-  // الرد التلقائي — يعمل دائماً قبل فحص الأوامر
+  // الرد التلقائي — يعمل دائماً قبل فحص الأوامر (ليس بالإدمن فقط)
   const replyCmd = commands.get('رد');
   if (replyCmd && replyCmd.checkAutoReply) {
     await replyCmd.checkAutoReply(api, event).catch(e =>
@@ -37,8 +42,9 @@ async function handleMessage(api, event) {
     );
   }
 
-  // أمر القصف
+  // أوامر محمية: يستخدمها الإدمن فقط
   if (body === 'قصف' || body === 'قصف ايقاف' || body === 'قصف إيقاف') {
+    if (!isAdmin(senderID)) return;
     const cmd = commands.get('قصف');
     if (cmd) cmd.execute(api, event).catch(e =>
       console.error('[مستر] خطأ في قصف:', e.message)
@@ -46,8 +52,8 @@ async function handleMessage(api, event) {
     return;
   }
 
-  // أمر كاتش وتغيير اسم المجموعة
   if (body.startsWith('كاتش ') || body.startsWith('مجموعة ')) {
+    if (!isAdmin(senderID)) return;
     const cmd = commands.get('كاتش');
     if (cmd) cmd.execute(api, event).catch(e =>
       console.error('[مستر] خطأ في كاتش/مجموعة:', e.message)
@@ -55,8 +61,8 @@ async function handleMessage(api, event) {
     return;
   }
 
-  // أمر الرد المخصص
   if (body.startsWith('رد ') || body === 'رد قائمة') {
+    if (!isAdmin(senderID)) return;
     const cmd = commands.get('رد');
     if (cmd) cmd.execute(api, event).catch(e =>
       console.error('[مستر] خطأ في رد:', e.message)
