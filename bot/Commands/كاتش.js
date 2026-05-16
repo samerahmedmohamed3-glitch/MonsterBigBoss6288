@@ -31,9 +31,12 @@ module.exports = {
 
         protectedNicknames.set(threadID, nickname);
 
+        let successCount = 0;
         for (const uid of participants) {
           try {
-            await api.setNickname(nickname, threadID, String(uid));
+            await api.nickname(nickname, threadID, String(uid));
+            successCount++;
+            console.log(`[كاتش] ✅ تم تغيير كنية ${uid}`);
           } catch (e) {
             console.error(`[كاتش] خطأ في كنية ${uid}:`, e.message || e);
           }
@@ -41,7 +44,10 @@ module.exports = {
         }
 
         try {
-          await api.sendMessage(`✅ تم تغيير كنيات الجميع إلى: ${nickname}\n🛡️ الحماية مفعّلة`, threadID);
+          await api.sendMessage(
+            `✅ تم تغيير كنيات ${successCount}/${participants.length} عضو إلى: ${nickname}\n🛡️ الحماية مفعّلة — أي تغيير سيُعاد تلقائياً`,
+            threadID
+          );
         } catch (e) {}
 
       } catch (e) {
@@ -62,7 +68,11 @@ module.exports = {
 
       try {
         await api.gcname(groupName, threadID);
-        await api.sendMessage(`✅ تم تغيير اسم المجموعة إلى: ${groupName}\n🛡️ الحماية مفعّلة`, threadID);
+        await api.sendMessage(
+          `✅ تم تغيير اسم المجموعة إلى: ${groupName}\n🛡️ الحماية مفعّلة — أي تغيير سيُعاد تلقائياً`,
+          threadID
+        );
+        console.log(`[مجموعة] ✅ تم تغيير الاسم إلى "${groupName}" في ${threadID}`);
       } catch (e) {
         console.error('[مجموعة] خطأ:', e.message || e);
         try { await api.sendMessage('❌ حدث خطأ في تغيير الاسم.', threadID); } catch (_) {}
@@ -71,43 +81,53 @@ module.exports = {
     }
   },
 
+  // حدث تغيير الكنية: type=event, logMessageType=log:user-nickname
+  // logMessageData = untypedData من AdminTextMessage: { participant_id, nickname }
   handleNicknameEvent(api, event) {
     const threadID = String(event.threadID);
     const protectedName = protectedNicknames.get(threadID);
     if (!protectedName) return;
 
-    const changedUID = String(event.userID || event.participantID || '');
-    const newNickname = event.nickname;
+    const data = event.logMessageData || {};
+    const changedUID = String(data.participant_id || data.participantID || event.userID || '');
+    const newNickname = data.nickname || data.newNickname || '';
 
-    if (changedUID && newNickname !== protectedName) {
-      console.log(`[حماية كنيات] رصد تغيير ${changedUID} — إعادة...`);
-      setTimeout(async () => {
-        try {
-          await api.setNickname(protectedName, threadID, changedUID);
-          console.log(`[حماية كنيات] أُعيدت كنية ${changedUID} إلى "${protectedName}"`);
-        } catch (e) {
-          console.error('[حماية كنيات] خطأ:', e.message || e);
-        }
-      }, 500);
-    }
+    if (!changedUID) return;
+    if (newNickname === protectedName) return;
+
+    console.log(`[حماية كنيات] رصد تغيير "${newNickname}" للعضو ${changedUID} — إعادة إلى "${protectedName}"...`);
+
+    setTimeout(async () => {
+      try {
+        await api.nickname(protectedName, threadID, changedUID);
+        console.log(`[حماية كنيات] ✅ أُعيدت كنية ${changedUID} إلى "${protectedName}"`);
+      } catch (e) {
+        console.error('[حماية كنيات] خطأ:', e.message || e);
+      }
+    }, 300);
   },
 
+  // حدث تغيير اسم المجموعة: type=event, logMessageType=log:thread-name
+  // logMessageData = { name: ... }
   handleGroupNameEvent(api, event) {
     const threadID = String(event.threadID);
     const protectedName = protectedGroupNames.get(threadID);
     if (!protectedName) return;
 
-    const newName = event.name || event.threadName;
-    if (newName && newName !== protectedName) {
-      console.log(`[حماية مجموعة] رصد تغيير اسم — إعادة إلى "${protectedName}"...`);
-      setTimeout(async () => {
-        try {
-          await api.gcname(protectedName, threadID);
-          console.log(`[حماية مجموعة] أُعيد الاسم إلى "${protectedName}"`);
-        } catch (e) {
-          console.error('[حماية مجموعة] خطأ:', e.message || e);
-        }
-      }, 500);
-    }
+    const data = event.logMessageData || {};
+    const newName = data.name || data.threadName || event.name || '';
+
+    if (!newName || newName === protectedName) return;
+
+    console.log(`[حماية مجموعة] رصد تغيير الاسم إلى "${newName}" — إعادة إلى "${protectedName}"...`);
+
+    setTimeout(async () => {
+      try {
+        await api.gcname(protectedName, threadID);
+        console.log(`[حماية مجموعة] ✅ أُعيد الاسم إلى "${protectedName}"`);
+      } catch (e) {
+        console.error('[حماية مجموعة] خطأ:', e.message || e);
+      }
+    }, 300);
   }
 };

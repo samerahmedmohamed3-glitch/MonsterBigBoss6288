@@ -27,8 +27,9 @@ async function handleMessage(api, event) {
   const threadID = String(event.threadID);
   const senderID = String(event.senderID || '');
 
-  console.log(`[مستر] 📩 رسالة من ${senderID} في ${threadID}: "${body.substring(0, 50)}"`);
+  console.log(`[مستر] 📩 رسالة من ${senderID} في ${threadID}: "${body.substring(0, 60)}"`);
 
+  // الرد التلقائي — يعمل دائماً قبل فحص الأوامر
   const replyCmd = commands.get('رد');
   if (replyCmd && replyCmd.checkAutoReply) {
     await replyCmd.checkAutoReply(api, event).catch(e =>
@@ -36,6 +37,7 @@ async function handleMessage(api, event) {
     );
   }
 
+  // أمر القصف
   if (body === 'قصف' || body === 'قصف ايقاف' || body === 'قصف إيقاف') {
     const cmd = commands.get('قصف');
     if (cmd) cmd.execute(api, event).catch(e =>
@@ -44,6 +46,7 @@ async function handleMessage(api, event) {
     return;
   }
 
+  // أمر كاتش وتغيير اسم المجموعة
   if (body.startsWith('كاتش ') || body.startsWith('مجموعة ')) {
     const cmd = commands.get('كاتش');
     if (cmd) cmd.execute(api, event).catch(e =>
@@ -52,6 +55,7 @@ async function handleMessage(api, event) {
     return;
   }
 
+  // أمر الرد المخصص
   if (body.startsWith('رد ') || body === 'رد قائمة') {
     const cmd = commands.get('رد');
     if (cmd) cmd.execute(api, event).catch(e =>
@@ -62,26 +66,24 @@ async function handleMessage(api, event) {
 }
 
 function handleEvent(api, event) {
-  if (!event || !event.type) return;
+  if (!event) return;
+
+  // طباعة الحدث للتشخيص
+  const logType = event.logMessageType || event.type || '';
+  if (logType !== 'read_receipt') {
+    console.log(`[مستر] 📌 حدث: type=${event.type} | logType=${logType}`);
+  }
 
   const catchCmd = commands.get('كاتش');
   if (!catchCmd) return;
 
-  const logType = event.logMessageType || event.type || '';
-
-  if (
-    logType === 'log:user-nickname' ||
-    logType === 'nickname' ||
-    event.type === 'event' && event.logMessageType === 'log:user-nickname'
-  ) {
+  // حماية الكنيات — حدث تغيير الكنية
+  if (logType === 'log:user-nickname') {
     catchCmd.handleNicknameEvent(api, event);
   }
 
-  if (
-    logType === 'log:thread-name' ||
-    logType === 'thread_name' ||
-    event.type === 'event' && event.logMessageType === 'log:thread-name'
-  ) {
+  // حماية اسم المجموعة — حدث تغيير الاسم
+  if (logType === 'log:thread-name') {
     catchCmd.handleGroupNameEvent(api, event);
   }
 }
