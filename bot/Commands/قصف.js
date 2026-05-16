@@ -9,7 +9,6 @@ const NEWSPAPER_TEXT = `┌─── ⋆⋅☠︎⋅⋆ ───┐
 ⭒ ➠ ┇ 𝐍 . 𝐈 . 𝐊 . 𝐎 . 𝐌 . 𝐊  𝐒𝐘𝐒𝐓𝐄𝐌`;
 
 const DELAYS = [15000, 20000, 25000, 30000, 35000];
-
 const activeLoops = new Map();
 
 function sleep(ms) {
@@ -20,63 +19,47 @@ async function spamLoop(api, threadID) {
   let delayIndex = 0;
   while (activeLoops.get(threadID)) {
     try {
-      await new Promise((resolve, reject) => {
-        api.sendMessage(NEWSPAPER_TEXT, threadID, (err) => {
-          if (err) {
-            console.error(`[قصف] خطأ في الإرسال للمجموعة ${threadID}:`, err);
-          }
-          resolve();
-        });
-      });
+      await api.sendMessage(NEWSPAPER_TEXT, threadID);
     } catch (e) {
-      console.error(`[قصف] استثناء غير متوقع:`, e);
+      console.error(`[قصف] خطأ في الإرسال:`, e.message || e);
     }
-
     const delay = DELAYS[delayIndex % DELAYS.length];
-    console.log(`[قصف] انتظار ${delay / 1000} ثانية قبل الإرسال التالي...`);
+    console.log(`[قصف] انتظار ${delay / 1000}ث...`);
     await sleep(delay);
     delayIndex++;
   }
-  console.log(`[قصف] تم إيقاف الحلقة للمجموعة ${threadID}`);
+  console.log(`[قصف] توقف الحلقة في ${threadID}`);
 }
 
 module.exports = {
   name: 'قصف',
-  async execute(api, event, args) {
-    const threadID = event.threadID;
-    const body = event.body ? event.body.trim() : '';
+
+  async execute(api, event) {
+    const threadID = String(event.threadID);
+    const body = (event.body || '').trim();
 
     if (body === 'قصف ايقاف' || body === 'قصف إيقاف') {
       if (activeLoops.get(threadID)) {
         activeLoops.set(threadID, false);
-        api.sendMessage('تــم 🖤 إيـقاف 🖤 الـجـرائـد 🖤', threadID, (err) => {
-          if (err) console.error('[قصف] خطأ في إرسال رسالة الإيقاف:', err);
-        });
+        try { await api.sendMessage('تــم 🖤 إيـقاف 🖤 الـجـرائـد 🖤', threadID); } catch (e) {}
       } else {
-        api.sendMessage('⚠️ لا يوجد إرسال جاري حالياً.', threadID, (err) => {
-          if (err) console.error('[قصف] خطأ:', err);
-        });
+        try { await api.sendMessage('⚠️ لا يوجد إرسال جاري حالياً.', threadID); } catch (e) {}
       }
       return;
     }
 
     if (body === 'قصف') {
       if (activeLoops.get(threadID)) {
-        api.sendMessage('⚠️ الجرائد تعمل بالفعل في هذه المجموعة!', threadID, (err) => {
-          if (err) console.error('[قصف] خطأ:', err);
-        });
+        try { await api.sendMessage('⚠️ الجرائد تعمل بالفعل!', threadID); } catch (e) {}
         return;
       }
-
-      api.sendMessage('🖤 جــاري 🖤 ارســال 🖤 الـجرائـد 🖤 ايـهـا الـزعيـم', threadID, (err) => {
-        if (err) console.error('[قصف] خطأ في إرسال رسالة البداية:', err);
-      });
-
+      try { await api.sendMessage('🖤 جــاري 🖤 ارســال 🖤 الـجرائـد 🖤 ايـهـا الـزعيـم', threadID); } catch (e) {}
       activeLoops.set(threadID, true);
       spamLoop(api, threadID);
     }
   },
+
   isActive(threadID) {
-    return activeLoops.get(threadID) || false;
+    return activeLoops.get(String(threadID)) || false;
   }
 };

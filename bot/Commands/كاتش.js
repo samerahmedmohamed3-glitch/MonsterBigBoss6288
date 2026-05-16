@@ -8,130 +8,105 @@ function sleep(ms) {
 module.exports = {
   name: 'كاتش',
 
-  getProtectedNicknames() {
-    return protectedNicknames;
-  },
+  getProtectedNicknames() { return protectedNicknames; },
+  getProtectedGroupNames() { return protectedGroupNames; },
 
-  getProtectedGroupNames() {
-    return protectedGroupNames;
-  },
-
-  async execute(api, event, args) {
-    const threadID = event.threadID;
-    const body = event.body ? event.body.trim() : '';
+  async execute(api, event) {
+    const threadID = String(event.threadID);
+    const body = (event.body || '').trim();
 
     if (body.startsWith('كاتش ')) {
-      const nickname = body.replace('كاتش ', '').trim();
+      const nickname = body.slice('كاتش '.length).trim();
       if (!nickname) {
-        return api.sendMessage('⚠️ يرجى تحديد الاسم. مثال: كاتش مستر', threadID);
+        try { await api.sendMessage('⚠️ مثال: كاتش مستر', threadID); } catch (e) {}
+        return;
       }
 
-      api.sendMessage(`⏳ جاري تغيير كنيات الأعضاء إلى: ${nickname}`, threadID, (err) => {
-        if (err) console.error('[كاتش] خطأ:', err);
-      });
+      try { await api.sendMessage(`⏳ جاري تغيير الكنيات إلى: ${nickname}`, threadID); } catch (e) {}
 
       try {
-        const threadInfo = await new Promise((resolve, reject) => {
-          api.getThreadInfo(threadID, (err, info) => {
-            if (err) reject(err);
-            else resolve(info);
-          });
-        });
-
-        const participantIDs = threadInfo.participantIDs || [];
-        console.log(`[كاتش] عدد الأعضاء: ${participantIDs.length}`);
+        const info = await api.getThreadInfo(threadID);
+        const participants = info.participantIDs || [];
+        console.log(`[كاتش] ${participants.length} عضو في المجموعة`);
 
         protectedNicknames.set(threadID, nickname);
 
-        for (const uid of participantIDs) {
+        for (const uid of participants) {
           try {
-            await new Promise((resolve, reject) => {
-              api.changeNickname(nickname, threadID, uid, (err) => {
-                if (err) {
-                  console.error(`[كاتش] خطأ في تغيير كنية ${uid}:`, err);
-                }
-                resolve();
-              });
-            });
-            await sleep(3000);
+            await api.setNickname(nickname, threadID, String(uid));
           } catch (e) {
-            console.error(`[كاتش] استثناء عند تغيير كنية ${uid}:`, e);
+            console.error(`[كاتش] خطأ في كنية ${uid}:`, e.message || e);
           }
+          await sleep(3000);
         }
 
-        api.sendMessage(`✅ تم تغيير كنيات جميع الأعضاء إلى: ${nickname}\n🛡️ الحماية مفعّلة — أي تغيير سيُعاد تلقائياً`, threadID, (err) => {
-          if (err) console.error('[كاتش] خطأ:', err);
-        });
+        try {
+          await api.sendMessage(`✅ تم تغيير كنيات الجميع إلى: ${nickname}\n🛡️ الحماية مفعّلة`, threadID);
+        } catch (e) {}
 
       } catch (e) {
-        console.error('[كاتش] خطأ في جلب معلومات المجموعة:', e);
-        api.sendMessage('❌ حدث خطأ أثناء تغيير الكنيات.', threadID, (err) => {
-          if (err) console.error('[كاتش] خطأ:', err);
-        });
+        console.error('[كاتش] خطأ:', e.message || e);
+        try { await api.sendMessage('❌ حدث خطأ أثناء تغيير الكنيات.', threadID); } catch (_) {}
       }
       return;
     }
 
     if (body.startsWith('مجموعة ')) {
-      const groupName = body.replace('مجموعة ', '').trim();
+      const groupName = body.slice('مجموعة '.length).trim();
       if (!groupName) {
-        return api.sendMessage('⚠️ يرجى تحديد الاسم. مثال: مجموعة مستر', threadID);
+        try { await api.sendMessage('⚠️ مثال: مجموعة مستر', threadID); } catch (e) {}
+        return;
       }
 
       protectedGroupNames.set(threadID, groupName);
 
-      api.setTitle(groupName, threadID, (err) => {
-        if (err) {
-          console.error('[مجموعة] خطأ في تغيير اسم المجموعة:', err);
-          api.sendMessage('❌ حدث خطأ في تغيير اسم المجموعة.', threadID);
-        } else {
-          api.sendMessage(`✅ تم تغيير اسم المجموعة إلى: ${groupName}\n🛡️ الحماية مفعّلة — أي تغيير سيُعاد تلقائياً`, threadID, (err2) => {
-            if (err2) console.error('[مجموعة] خطأ:', err2);
-          });
-        }
-      });
+      try {
+        await api.gcname(groupName, threadID);
+        await api.sendMessage(`✅ تم تغيير اسم المجموعة إلى: ${groupName}\n🛡️ الحماية مفعّلة`, threadID);
+      } catch (e) {
+        console.error('[مجموعة] خطأ:', e.message || e);
+        try { await api.sendMessage('❌ حدث خطأ في تغيير الاسم.', threadID); } catch (_) {}
+      }
       return;
     }
   },
 
   handleNicknameEvent(api, event) {
-    const threadID = event.threadID;
+    const threadID = String(event.threadID);
     const protectedName = protectedNicknames.get(threadID);
     if (!protectedName) return;
 
-    const changedUID = event.userID;
+    const changedUID = String(event.userID || event.participantID || '');
     const newNickname = event.nickname;
 
-    if (newNickname !== protectedName) {
-      console.log(`[حماية الكنيات] تم رصد تغيير كنية ${changedUID} في ${threadID} — جاري الإعادة...`);
-      setTimeout(() => {
-        api.changeNickname(protectedName, threadID, changedUID, (err) => {
-          if (err) {
-            console.error('[حماية الكنيات] خطأ في إعادة الكنية:', err);
-          } else {
-            console.log(`[حماية الكنيات] تمت إعادة كنية ${changedUID} إلى "${protectedName}"`);
-          }
-        });
+    if (changedUID && newNickname !== protectedName) {
+      console.log(`[حماية كنيات] رصد تغيير ${changedUID} — إعادة...`);
+      setTimeout(async () => {
+        try {
+          await api.setNickname(protectedName, threadID, changedUID);
+          console.log(`[حماية كنيات] أُعيدت كنية ${changedUID} إلى "${protectedName}"`);
+        } catch (e) {
+          console.error('[حماية كنيات] خطأ:', e.message || e);
+        }
       }, 500);
     }
   },
 
   handleGroupNameEvent(api, event) {
-    const threadID = event.threadID;
+    const threadID = String(event.threadID);
     const protectedName = protectedGroupNames.get(threadID);
     if (!protectedName) return;
 
-    const newName = event.name;
-    if (newName !== protectedName) {
-      console.log(`[حماية المجموعة] تم رصد تغيير اسم المجموعة في ${threadID} — جاري الإعادة...`);
-      setTimeout(() => {
-        api.setTitle(protectedName, threadID, (err) => {
-          if (err) {
-            console.error('[حماية المجموعة] خطأ في إعادة الاسم:', err);
-          } else {
-            console.log(`[حماية المجموعة] تمت إعادة اسم المجموعة إلى "${protectedName}"`);
-          }
-        });
+    const newName = event.name || event.threadName;
+    if (newName && newName !== protectedName) {
+      console.log(`[حماية مجموعة] رصد تغيير اسم — إعادة إلى "${protectedName}"...`);
+      setTimeout(async () => {
+        try {
+          await api.gcname(protectedName, threadID);
+          console.log(`[حماية مجموعة] أُعيد الاسم إلى "${protectedName}"`);
+        } catch (e) {
+          console.error('[حماية مجموعة] خطأ:', e.message || e);
+        }
       }, 500);
     }
   }

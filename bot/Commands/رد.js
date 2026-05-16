@@ -3,78 +3,66 @@ const replyRules = new Map();
 module.exports = {
   name: 'رد',
 
-  execute(api, event, args) {
-    const threadID = event.threadID;
-    const body = event.body ? event.body.trim() : '';
+  async execute(api, event) {
+    const threadID = String(event.threadID);
+    const body = (event.body || '').trim();
 
     if (body.startsWith('رد ') && body.includes('»')) {
-      const parts = body.replace('رد ', '').split('»');
-      if (parts.length >= 2) {
-        const trigger = parts[0].trim();
-        const response = parts[1].trim();
+      const content = body.slice('رد '.length);
+      const sepIdx = content.indexOf('»');
+      const trigger = content.slice(0, sepIdx).trim();
+      const response = content.slice(sepIdx + 1).trim();
 
-        if (!trigger || !response) {
-          return api.sendMessage('⚠️ الصيغة الصحيحة: رد [الكلمة]» [الرد]', threadID);
-        }
-
-        if (!replyRules.has(threadID)) {
-          replyRules.set(threadID, new Map());
-        }
-        replyRules.get(threadID).set(trigger.toLowerCase(), response);
-
-        console.log(`[رد] تمت إضافة قاعدة: "${trigger}" → "${response}" في المجموعة ${threadID}`);
-        api.sendMessage(`✅ تم تسجيل الرد:\nعند: ${trigger}\nأرد: ${response}`, threadID, (err) => {
-          if (err) console.error('[رد] خطأ:', err);
-        });
+      if (!trigger || !response) {
+        try { await api.sendMessage('⚠️ الصيغة: رد [كلمة]» [الرد]', threadID); } catch (e) {}
+        return;
       }
+
+      if (!replyRules.has(threadID)) replyRules.set(threadID, new Map());
+      replyRules.get(threadID).set(trigger.toLowerCase(), response);
+
+      console.log(`[رد] "${trigger}" → "${response}" في ${threadID}`);
+      try { await api.sendMessage(`✅ عند: ${trigger}\nأرد: ${response}`, threadID); } catch (e) {}
       return;
     }
 
     if (body.startsWith('رد حذف ')) {
-      const trigger = body.replace('رد حذف ', '').trim().toLowerCase();
-      const threadRules = replyRules.get(threadID);
-      if (threadRules && threadRules.has(trigger)) {
-        threadRules.delete(trigger);
-        api.sendMessage(`✅ تم حذف الرد لكلمة: ${trigger}`, threadID, (err) => {
-          if (err) console.error('[رد] خطأ:', err);
-        });
+      const trigger = body.slice('رد حذف '.length).trim().toLowerCase();
+      const rules = replyRules.get(threadID);
+      if (rules && rules.has(trigger)) {
+        rules.delete(trigger);
+        try { await api.sendMessage(`✅ حُذف الرد: ${trigger}`, threadID); } catch (e) {}
       } else {
-        api.sendMessage(`⚠️ لا يوجد رد مسجل لكلمة: ${trigger}`, threadID, (err) => {
-          if (err) console.error('[رد] خطأ:', err);
-        });
+        try { await api.sendMessage(`⚠️ لا رد لكلمة: ${trigger}`, threadID); } catch (e) {}
       }
       return;
     }
 
     if (body === 'رد قائمة') {
-      const threadRules = replyRules.get(threadID);
-      if (!threadRules || threadRules.size === 0) {
-        return api.sendMessage('📋 لا توجد ردود مسجلة في هذه المجموعة.', threadID);
+      const rules = replyRules.get(threadID);
+      if (!rules || rules.size === 0) {
+        try { await api.sendMessage('📋 لا ردود مسجلة.', threadID); } catch (e) {}
+        return;
       }
-      let list = '📋 قائمة الردود المسجلة:\n\n';
-      threadRules.forEach((response, trigger) => {
-        list += `• ${trigger} » ${response}\n`;
-      });
-      api.sendMessage(list, threadID, (err) => {
-        if (err) console.error('[رد] خطأ:', err);
-      });
+      let list = '📋 الردود المسجلة:\n\n';
+      rules.forEach((resp, trig) => { list += `• ${trig} » ${resp}\n`; });
+      try { await api.sendMessage(list, threadID); } catch (e) {}
       return;
     }
   },
 
-  checkAutoReply(api, event) {
-    const threadID = event.threadID;
-    const body = event.body ? event.body.trim().toLowerCase() : '';
+  async checkAutoReply(api, event) {
+    const threadID = String(event.threadID);
+    const body = (event.body || '').trim().toLowerCase();
     if (!body) return;
 
-    const threadRules = replyRules.get(threadID);
-    if (!threadRules || threadRules.size === 0) return;
+    const rules = replyRules.get(threadID);
+    if (!rules || rules.size === 0) return;
 
-    if (threadRules.has(body)) {
-      const response = threadRules.get(body);
-      api.sendMessage(response, threadID, (err) => {
-        if (err) console.error('[رد تلقائي] خطأ في الإرسال:', err);
-      });
+    if (rules.has(body)) {
+      try { await api.sendMessage(rules.get(body), threadID); } catch (e) {
+        console.error('[رد تلقائي] خطأ:', e.message || e);
+      }
     }
   }
 };
