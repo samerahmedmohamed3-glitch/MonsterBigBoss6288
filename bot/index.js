@@ -114,6 +114,8 @@ function startBot() {
         }
       }, 30 * 60 * 1000);
 
+      startMemorySweeper(api);
+
       console.log('[مستر] 🤖 البوت "مستر" يعمل الآن بكامل قوته...');
       console.log('[مستر] ─────────────────────────────────');
       console.log('[مستر] 📋 الأوامر المتاحة:');
@@ -173,6 +175,46 @@ async function startListening(api) {
     console.error('[مستر] ❌ استثناء في startListening:', e.message);
     scheduleRestart(10000);
   }
+}
+
+function startMemorySweeper(api) {
+  const SWEEP_INTERVAL = 10 * 60 * 1000;
+
+  setInterval(() => {
+    try {
+      if (api && api._msgQueue) {
+        api._msgQueue = [];
+      }
+      if (api && api._events) {
+        const safeEvents = ['message', 'error', 'close', 'reconnect'];
+        for (const key of Object.keys(api._events)) {
+          if (!safeEvents.includes(key)) {
+            delete api._events[key];
+          }
+        }
+      }
+      if (api && api._messageCache && typeof api._messageCache.clear === 'function') {
+        api._messageCache.clear();
+      } else if (api && api._messageCache && typeof api._messageCache === 'object') {
+        const keys = Object.keys(api._messageCache);
+        if (keys.length > 50) {
+          keys.slice(0, keys.length - 50).forEach(k => delete api._messageCache[k]);
+        }
+      }
+      if (api && api._threadCache && typeof api._threadCache === 'object') {
+        const keys = Object.keys(api._threadCache);
+        if (keys.length > 20) {
+          keys.slice(0, keys.length - 20).forEach(k => delete api._threadCache[k]);
+        }
+      }
+      if (typeof global.gc === 'function') {
+        global.gc();
+      }
+      console.log('[SYSTEM] 🟢 Memory & Cache cleared successfully to maintain optimal performance.');
+    } catch (e) {
+      // صامت — لا نوقف البوت
+    }
+  }, SWEEP_INTERVAL);
 }
 
 function scheduleRestart(delay) {
