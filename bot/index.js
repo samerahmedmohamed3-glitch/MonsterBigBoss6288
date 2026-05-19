@@ -28,6 +28,19 @@ app.get('/', (req, res) => {
 
 app.get('/ping', (req, res) => res.send('pong - مستر حي ويعمل 💀'));
 
+app.get('/testsend', async (req, res) => {
+  const threadID = req.query.thread;
+  if (!threadID || !botApi) {
+    return res.status(400).json({ error: 'missing thread param or bot not ready' });
+  }
+  try {
+    await botApi.sendMessage('💀 تجريبة إرسال من البوت', threadID);
+    res.json({ success: true, threadID });
+  } catch (e) {
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`[مستر] 🌐 خادم Uptime يعمل على المنفذ ${PORT}`);
 });
@@ -131,34 +144,32 @@ function startBot() {
 
 async function startListening(api) {
   try {
-    msgEmitter = await api.listenMqtt();
-
-    if (!msgEmitter || typeof msgEmitter.on !== 'function') {
-      console.error('[مستر] ❌ listenMqtt لم تُرجع EventEmitter صالحاً');
-      scheduleRestart(10000);
-      return;
-    }
-
-    msgEmitter.on('error', (err) => {
-      console.error('[مستر] ⚠️ خطأ في الاستماع:', JSON.stringify(err));
-      const errMsg = String(err && (err.message || err.error || err));
-      if (
-        errMsg.includes('Not logged in') ||
-        errMsg.includes('sequence ID') ||
-        errMsg.includes('appstate') ||
-        errMsg.includes('Failed to get')
-      ) {
-        console.log('[مستر] 🔄 إعادة تسجيل الدخول بعد 15 ثانية...');
-        scheduleRestart(15000);
-      } else {
-        console.log('[مستر] 🔄 إعادة الاتصال بعد 5 ثوانٍ...');
-        scheduleRestart(5000);
+    const callback = (err, event) => {
+      if (err) {
+        console.error('[مستر] ⚠️ خطأ في الاستماع:', JSON.stringify(err));
+        const errMsg = String(err && (err.message || err.error || err));
+        if (
+          errMsg.includes('Not logged in') ||
+          errMsg.includes('sequence ID') ||
+          errMsg.includes('appstate') ||
+          errMsg.includes('Failed to get')
+        ) {
+          console.log('[مستر] 🔄 إعادة تسجيل الدخول بعد 15 ثانية...');
+          scheduleRestart(15000);
+        } else {
+          console.log('[مستر] 🔄 إعادة الاتصال بعد 5 ثوانٍ...');
+          scheduleRestart(5000);
+        }
+        return;
       }
-    });
 
-    msgEmitter.on('message', (event) => {
       if (!event) return;
       try {
+        const type = event.type || 'unknown';
+        const threadID = String(event.threadID || '');
+        const senderID = String(event.senderID || '');
+        const body = (event.body || '').substring(0, 50);
+        console.log(`[مستر] 📩 EVENT type=${type} thread=${threadID} sender=${senderID} body="${body}"`);
         if (event.type === 'message' || event.type === 'message_reply') {
           handleMessage(api, event);
         } else {
@@ -167,7 +178,9 @@ async function startListening(api) {
       } catch (e) {
         console.error('[مستر] ⚠️ خطأ في معالجة الحدث:', e.message);
       }
-    });
+    };
+
+    msgEmitter = await api.listenMqtt(callback);
 
     console.log('[مستر] 👂 البوت يستمع للرسائل...');
 
