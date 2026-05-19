@@ -18,9 +18,11 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 
 app.get('/', (req, res) => {
+  const isLoggedIn = !!botApi;
   res.json({
-    status: '🟢 بوت مستر يعمل بكامل قوته!',
+    status: isLoggedIn ? '🟢 بوت مستر مسجّل دخول ويعمل' : '🔴 بوت مستر مفصول الدخول (الكوكيز منتهية)',
     bot: 'مستر',
+    loggedIn: isLoggedIn,
     uptime: Math.floor(process.uptime()) + ' ثانية',
     timestamp: new Date().toISOString()
   });
@@ -38,6 +40,21 @@ app.get('/testsend', async (req, res) => {
     res.json({ success: true, threadID });
   } catch (e) {
     res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+app.post('/updatecookies', express.json(), (req, res) => {
+  const appstatePath = path.join(__dirname, 'appstate.json');
+  try {
+    const cookies = req.body;
+    if (!Array.isArray(cookies) || cookies.length === 0) {
+      return res.status(400).json({ error: 'Invalid cookies format. Must be an array.' });
+    }
+    fs.writeFileSync(appstatePath, JSON.stringify(cookies, null, 2));
+    console.log('[مستر] ✅ تم تحديث الكوكيز عبر HTTP');
+    res.json({ success: true, message: 'Cookies updated. Bot will reconnect on next attempt.' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -82,7 +99,18 @@ function startBot() {
     },
     (err, api) => {
       if (err) {
-        console.error('[مستر] ❌ فشل تسجيل الدخول:', JSON.stringify(err));
+        const errStr = JSON.stringify(err);
+        console.error('[مستر] ❌ فشل تسجيل الدخول:', errStr);
+        const errMsg = String(err && (err.message || err.error || errStr));
+
+        if (errMsg.includes('retrieving userID') || errMsg.includes('blocked') || errMsg.includes('unknown location')) {
+          console.log('[مستر] 🔴 فيسبوك حظر الجلسة أو الكوكيز منتهية.');
+          console.log('[مستر] ⏳ إعادة المحاولة بعد 3 دقائق للتخفيف عن الحظر...');
+          isRestarting = false;
+          setTimeout(startBot, 3 * 60 * 1000);
+          return;
+        }
+
         console.log('[مستر] ⏳ إعادة المحاولة بعد 15 ثانية...');
         isRestarting = false;
         setTimeout(startBot, 15000);
