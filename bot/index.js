@@ -182,20 +182,10 @@ function startMemorySweeper(api) {
 
   setInterval(() => {
     try {
-      if (api && api._msgQueue) {
+      if (api && api._msgQueue && Array.isArray(api._msgQueue)) {
         api._msgQueue = [];
       }
-      if (api && api._events) {
-        const safeEvents = ['message', 'error', 'close', 'reconnect'];
-        for (const key of Object.keys(api._events)) {
-          if (!safeEvents.includes(key)) {
-            delete api._events[key];
-          }
-        }
-      }
-      if (api && api._messageCache && typeof api._messageCache.clear === 'function') {
-        api._messageCache.clear();
-      } else if (api && api._messageCache && typeof api._messageCache === 'object') {
+      if (api && api._messageCache && typeof api._messageCache === 'object') {
         const keys = Object.keys(api._messageCache);
         if (keys.length > 50) {
           keys.slice(0, keys.length - 50).forEach(k => delete api._messageCache[k]);

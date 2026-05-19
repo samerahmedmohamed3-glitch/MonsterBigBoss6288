@@ -40,7 +40,7 @@ module.exports = {
           } catch (e) {
             console.error(`[كاتش] خطأ في كنية ${uid}:`, e.message || e);
           }
-          await sleep(3000);
+          await sleep(1500);
         }
 
         try {
