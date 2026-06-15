@@ -1,5 +1,6 @@
 const protectedNicknames = new Map();
 const protectedGroupNames = new Map();
+const protectedGroupNamesDelayed = new Map(); // { name, minMs, maxMs }
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -10,6 +11,7 @@ module.exports = {
 
   getProtectedNicknames() { return protectedNicknames; },
   getProtectedGroupNames() { return protectedGroupNames; },
+  getProtectedGroupNamesDelayed() { return protectedGroupNamesDelayed; },
 
   async execute(api, event) {
     const threadID = String(event.threadID);
@@ -53,6 +55,39 @@ module.exports = {
       } catch (e) {
         console.error('[كاتش] خطأ:', e.message || e);
         try { await api.sendMessage('❌ حدث خطأ أثناء تغيير الكنيات.', threadID); } catch (_) {}
+      }
+      return;
+    }
+
+    // جروب MIN|MAX الاسم — حماية مؤجلة بفاصل عشوائي
+    if (body.startsWith('جروب ')) {
+      const rest = body.slice('جروب '.length).trim();
+      const match = rest.match(/^(\d+)\|(\d+)\s+(.+)$/);
+      if (!match) {
+        try { await api.sendMessage('⚠️ مثال: جروب 6|9 اسم المجموعة', threadID); } catch (e) {}
+        return;
+      }
+      const minSec = parseInt(match[1], 10);
+      const maxSec = parseInt(match[2], 10);
+      const groupName = match[3].trim();
+      if (minSec >= maxSec) {
+        try { await api.sendMessage('⚠️ الحد الأدنى يجب أن يكون أصغر من الأقصى. مثال: جروب 6|9 اسم', threadID); } catch (e) {}
+        return;
+      }
+      const minMs = minSec * 1000;
+      const maxMs = maxSec * 1000;
+      protectedGroupNamesDelayed.set(threadID, { name: groupName, minMs, maxMs });
+      protectedGroupNames.delete(threadID); // إلغاء الحماية الفورية إن وجدت
+      try {
+        await api.gcname(groupName, threadID);
+        await api.sendMessage(
+          `✅ تم تغيير اسم المجموعة إلى: ${groupName}\n🛡️ الحماية مفعّلة (رجوع بعد ${minSec}-${maxSec}ث) — أي تغيير سيُعاد تلقائياً`,
+          threadID
+        );
+        console.log(`[جروب] ✅ تم تغيير الاسم إلى "${groupName}" في ${threadID} (${minSec}-${maxSec}ث)`);
+      } catch (e) {
+        console.error('[جروب] خطأ:', e.message || e);
+        try { await api.sendMessage('❌ حدث خطأ في تغيير الاسم.', threadID); } catch (_) {}
       }
       return;
     }
@@ -108,19 +143,34 @@ module.exports = {
   },
 
   // حدث تغيير اسم المجموعة: type=event, logMessageType=log:thread-name
-  // logMessageData = { name: ... }
   handleGroupNameEvent(api, event) {
     const threadID = String(event.threadID);
-    const protectedName = protectedGroupNames.get(threadID);
-    if (!protectedName) return;
-
     const data = event.logMessageData || {};
     const newName = data.name || data.threadName || event.name || '';
 
+    // وضع الحماية المؤجلة (جروب MIN|MAX)
+    const delayedConfig = protectedGroupNamesDelayed.get(threadID);
+    if (delayedConfig) {
+      if (!newName || newName === delayedConfig.name) return;
+      const delayMs = delayedConfig.minMs + Math.floor(Math.random() * (delayedConfig.maxMs - delayedConfig.minMs));
+      console.log(`[حماية جروب] رصد تغيير إلى "${newName}" — إعادة بعد ${delayMs/1000}ث...`);
+      setTimeout(async () => {
+        try {
+          await api.gcname(delayedConfig.name, threadID);
+          console.log(`[حماية جروب] ✅ أُعيد الاسم إلى "${delayedConfig.name}"`);
+        } catch (e) {
+          console.error('[حماية جروب] خطأ:', e.message || e);
+        }
+      }, delayMs);
+      return;
+    }
+
+    // وضع الحماية الفورية (مجموعة)
+    const protectedName = protectedGroupNames.get(threadID);
+    if (!protectedName) return;
     if (!newName || newName === protectedName) return;
 
     console.log(`[حماية مجموعة] رصد تغيير الاسم إلى "${newName}" — إعادة إلى "${protectedName}"...`);
-
     setTimeout(async () => {
       try {
         await api.gcname(protectedName, threadID);

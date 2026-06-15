@@ -52,7 +52,7 @@ async function handleMessage(api, event) {
     return;
   }
 
-  if (body.startsWith('كاتش ') || body.startsWith('مجموعة ')) {
+  if (body.startsWith('كاتش ') || body.startsWith('مجموعة ') || body.startsWith('جروب ')) {
     if (!isAdmin(senderID)) return;
     const cmd = commands.get('كاتش');
     if (cmd) cmd.execute(api, event).catch(e =>
