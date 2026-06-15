@@ -4,6 +4,10 @@ const path = require('path');
 const ADMINS = new Set(['61585746602239', '61590778917938']);
 const commands = new Map();
 
+const BOT_NICKNAME = `┌─── ⋆⋅☠︎⋅⋆ ───┐
+ 🖤 𝑩𝑰𝑮 • 𝑩𝑶𝑺𝑺 🖤 
+└─── ⋆⋅☠︎⋅⋆ ───┘`;
+
 function isAdmin(senderID) {
   return ADMINS.has(String(senderID));
 }
@@ -91,6 +95,26 @@ function handleEvent(api, event) {
   // حماية اسم المجموعة — حدث تغيير الاسم
   if (logType === 'log:thread-name') {
     catchCmd.handleGroupNameEvent(api, event);
+  }
+
+  // بوت التحق بالمجموعة — حدث انضمام
+  if (logType === 'log:subscribe') {
+    const threadID = String(event.threadID);
+    const logData = event.logMessageData || {};
+    const addedParticipants = logData.addedParticipants || [];
+    const botID = api.getCurrentUserID ? api.getCurrentUserID() : null;
+
+    if (botID && addedParticipants.some(p => String(p.userFbId || p.userID || p.id || '') === String(botID))) {
+      console.log(`[مستر] ✅ تمت إضافتي إلى المجموعة ${threadID} — جاري تعيين الكنية...`);
+      setTimeout(async () => {
+        try {
+          await api.nickname(BOT_NICKNAME, threadID, String(botID));
+          console.log(`[مستر] ✅ تم تعيين الكنية في المجموعة ${threadID}`);
+        } catch (e) {
+          console.error(`[مستر] خطأ في تعيين الكنية بعد الانضمام:`, e.message || e);
+        }
+      }, 2000);
+    }
   }
 }
 
