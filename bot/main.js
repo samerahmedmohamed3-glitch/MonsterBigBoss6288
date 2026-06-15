@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ADMINS = new Set(['61590007074814', '61589579883863']);
+const ADMINS = new Set(['61585746602239', '61590778917938']);
 const commands = new Map();
 
 function isAdmin(senderID) {

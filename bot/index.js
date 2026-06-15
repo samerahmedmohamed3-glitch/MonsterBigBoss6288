@@ -65,6 +65,24 @@ app.listen(PORT, () => {
 let botApi = null;
 let msgEmitter = null;
 let isRestarting = false;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_BACKOFF = 30000; // 30 seconds max
+
+// Heartbeat to keep MQTT alive
+let heartbeatInterval = null;
+function startHeartbeat(api) {
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  heartbeatInterval = setInterval(() => {
+    try {
+      if (api && api.getCurrentUserID) {
+        api.getCurrentUserID();
+        console.log('[مستر] 💓 Heartbeat ping sent');
+      }
+    } catch (e) {
+      console.error('[مستر] ⚠️ Heartbeat failed:', e.message);
+    }
+  }, 30000); // 30 seconds
+}
 
 function startBot() {
   if (isRestarting) return;
@@ -119,6 +137,7 @@ function startBot() {
 
       console.log('[مستر] ✅ تم تسجيل الدخول بنجاح!');
       isRestarting = false;
+      reconnectAttempts = 0; // reset on successful login
       botApi = api;
 
       try {
@@ -143,6 +162,18 @@ function startBot() {
 
       loadCommands();
       startListening(api);
+      startHeartbeat(api);
+
+      // Resume spam loops on reconnect
+      try {
+        const { commands } = require('./main');
+        const qasf = commands.get('قصف');
+        if (qasf && qasf.resumeAll) {
+          qasf.resumeAll(api);
+        }
+      } catch (e) {
+        console.error('[مستر] خطأ في استئناف حلقات القصف:', e.message);
+      }
 
       setInterval(() => {
         try {
@@ -160,11 +191,12 @@ function startBot() {
       console.log('[مستر] 🤖 البوت "مستر" يعمل الآن بكامل قوته...');
       console.log('[مستر] ─────────────────────────────────');
       console.log('[مستر] 📋 الأوامر المتاحة:');
-      console.log('[مستر]   • قصف           — إرسال الجريدة بحلقة لا نهائية');
-      console.log('[مستر]   • قصف ايقاف    — إيقاف الإرسال');
-      console.log('[مستر]   • كاتش [اسم]   — تغيير كنيات جميع الأعضاء');
-      console.log('[مستر]   • مجموعة [اسم] — تغيير اسم المجموعة مع الحماية');
-      console.log('[مستر]   • رد [كلمة]» [رد] — إضافة رد تلقائي');
+      console.log('[مستر]   • قصف                    — إرسال الجريدة بحلقة لا نهائية');
+      console.log('[مستر]   • قصف ايقاف              — إيقاف الإرسال');
+      console.log('[مستر]   • كاتش [اسم]             — تغيير كنيات جميع الأعضاء');
+      console.log('[مستر]   • مجموعة [اسم]           — تغيير اسم المجموعة مع الحماية');
+      console.log('[مستر]   • مجموعة 2 »MIN|MAX [اسم] — تغيير الاسم مع حماية مؤجلة');
+      console.log('[مستر]   • رد [كلمة]» [رد]        — إضافة رد تلقائي');
       console.log('[مستر] ─────────────────────────────────');
     }
   );
@@ -248,9 +280,14 @@ function startMemorySweeper(api) {
   }, SWEEP_INTERVAL);
 }
 
-function scheduleRestart(delay) {
+function scheduleRestart(baseDelay) {
   if (isRestarting) return;
   isRestarting = true;
+
+  try {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  } catch (e) {}
 
   try {
     if (msgEmitter && typeof msgEmitter.stop === 'function') {
@@ -263,7 +300,11 @@ function scheduleRestart(delay) {
   msgEmitter = null;
   botApi = null;
 
-  console.log(`[مستر] ⏳ إعادة الاتصال بعد ${delay / 1000} ثانية...`);
+  // Exponential backoff: 5s → 15s → 30s
+  reconnectAttempts++;
+  const delay = Math.min(baseDelay * reconnectAttempts, MAX_RECONNECT_BACKOFF);
+
+  console.log(`[مستر] ⏳ إعادة الاتصال بعد ${delay / 1000} ثانية (محاولة ${reconnectAttempts})...`);
   setTimeout(() => {
     isRestarting = false;
     startBot();
