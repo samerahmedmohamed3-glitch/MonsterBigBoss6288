@@ -73,6 +73,14 @@ async function handleMessage(api, event) {
     );
     return;
   }
+
+  if (body.startsWith('يوت ')) {
+    const cmd = commands.get('يوت');
+    if (cmd) cmd.execute(api, event).catch(e =>
+      console.error('[مستر] خطأ في يوت:', e.message)
+    );
+    return;
+  }
 }
 
 function handleEvent(api, event) {
