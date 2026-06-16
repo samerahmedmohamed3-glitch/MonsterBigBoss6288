@@ -4,32 +4,28 @@ const path = require('path');
 
 const YTDL_PATH = '/home/runner/workspace/.pythonlibs/bin/yt-dlp';
 
-function ytDlp(args, timeoutMs = 60000) {
+function downloadAudio(query, outFile) {
   return new Promise((resolve, reject) => {
-    const cmd = `"${YTDL_PATH}" ${args}`;
-    const child = exec(cmd, { timeout: timeoutMs }, (err, stdout, stderr) => {
-      if (err) {
-        reject(err);
+    const safeQuery = query.replace(/"/g, '\\"').replace(/`/g, '');
+    const cmd = `"${YTDL_PATH}" "ytsearch1:${safeQuery}" -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outFile}"`;
+    console.log(`[يوت] تنفيذ: ${cmd}`);
+    exec(cmd, { timeout: 150000 }, (err, stdout, stderr) => {
+      if (fs.existsSync(outFile) && fs.statSync(outFile).size > 0) {
+        resolve();
+      } else if (err) {
+        console.error(`[يوت] yt-dlp stderr:`, stderr || err.message);
+        reject(new Error(stderr || err.message));
       } else {
-        resolve(stdout.trim());
+        reject(new Error('الملف لم يُنشأ'));
       }
     });
   });
 }
 
-async function downloadAudio(query, outFile) {
-  const args = `"ytsearch:${query.replace(/"/g, '\\"')}" -x --audio-format mp3 --audio-quality 0 --max-downloads 1 -o "${outFile}"`;
-  return ytDlp(args, 120000);
-}
-
 function cleanup(filePath) {
   try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  } catch (e) {
-    // ignore
-  }
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch (e) {}
 }
 
 module.exports = {
@@ -42,41 +38,27 @@ module.exports = {
     if (!body.startsWith('يوت ')) return;
     const query = body.slice('يوت '.length).trim();
     if (!query) {
-      try { await api.sendMessage('⚠️ مثال: يوت Imagine Dragons', threadID); } catch (e) {}
+      try { await api.sendMessage('⚠️ مثال: يوت Imagine Dragons Believer', threadID); } catch (e) {}
       return;
     }
 
-    try { await api.sendMessage(`⏳ جاري البحث والتحميل: "${query}"...`, threadID); } catch (e) {}
+    try { await api.sendMessage(`🎵 جاري البحث عن: "${query}"...`, threadID); } catch (e) {}
 
-    const outFile = path.join(__dirname, '..', 'tmp', 'yot-' + Date.now() + '.mp3');
-    try {
-      fs.mkdirSync(path.dirname(outFile), { recursive: true });
-    } catch (e) {}
+    const tmpDir = path.join(__dirname, '..', 'tmp');
+    const outFile = path.join(tmpDir, 'yot-' + Date.now() + '.mp3');
+    try { fs.mkdirSync(tmpDir, { recursive: true }); } catch (e) {}
 
     try {
       await downloadAudio(query, outFile);
 
-      if (!fs.existsSync(outFile)) {
-        throw new Error('لم يتم إنشاء ملف الصوت');
-      }
+      const sizeMB = (fs.statSync(outFile).size / (1024 * 1024)).toFixed(2);
+      console.log(`[يوت] إرسال ملف (${sizeMB} MB) إلى ${threadID}`);
 
-      const stats = fs.statSync(outFile);
-      if (stats.size === 0) {
-        throw new Error('ملف الصوت فارغ');
-      }
+      await api.sendMessage({ attachment: fs.createReadStream(outFile) }, threadID);
 
-      const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-      console.log(`[يوت] جاري إرسال ملف الصوت: ${outFile} (${fileSizeMB} MB)`);
-
-      try { await api.sendMessage({ attachment: fs.createReadStream(outFile) }, threadID); } catch (e) {
-        console.error(`[يوت] خطأ في إرسال الملف:`, e.message || e);
-        try { await api.sendMessage('❌ فشل في إرسال ملف الصوت.', threadID); } catch (e) {}
-      }
     } catch (err) {
-      console.error(`[يوت] خطأ:`, err.message || err);
-      try {
-        await api.sendMessage('❌ لم يتم العثور على المقطع أو فشل في التحميل.', threadID);
-      } catch (e) {}
+      console.error(`[يوت] فشل:`, err.message);
+      try { await api.sendMessage('❌ لم يُعثر على المقطع أو فشل التحميل، جرب اسماً آخر.', threadID); } catch (e) {}
     } finally {
       cleanup(outFile);
     }
