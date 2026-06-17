@@ -97,12 +97,20 @@ async function spamLoop(api, threadID) {
     try {
       const text = getTextForCycle(cycleIndex);
       const delay = getDelayForCycle(cycleIndex);
+
+      // محاكاة الكتابة البشرية قبل الإرسال (3-6 ثواني)
+      const typingTime = 3000 + Math.floor(Math.random() * 3000);
+      try { await api.sendTypingIndicator(true, threadID); } catch (e) {}
+      await sleep(typingTime);
+      try { await api.sendTypingIndicator(false, threadID); } catch (e) {}
+
       await api.sendMessage(text, threadID);
-      console.log(`[قصف] إرسال الجريدة #${cycleIndex + 1} بعد ${delay/1000}ث في ${threadID}`);
+      console.log(`[قصف] ✍️ إرسال الجريدة #${cycleIndex + 1} (كتابة ${typingTime/1000}ث) بعد ${delay/1000}ث في ${threadID}`);
       await sleep(delay);
       cycleIndex++;
     } catch (e) {
       console.error(`[قصف] خطأ في الإرسال:`, e.message || e);
+      try { await api.sendTypingIndicator(false, threadID); } catch (ex) {}
       await sleep(5000);
     }
   }

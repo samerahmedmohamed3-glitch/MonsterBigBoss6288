@@ -4,6 +4,11 @@ const path = require('path');
 const ADMINS = new Set(['61585746602239', '61590778917938']);
 const commands = new Map();
 
+// عداد الرسائل لكل جروب — كل 568 رسالة يتفاعل البوت
+const msgCounters = new Map();
+const REACTION_EMOJIS = ['🖤', '🥒', '☠️', '💀', '🔥'];
+const REACTION_MILESTONE = 568;
+
 const BOT_NICKNAME = `┌─── ⋆⋅☠︎⋅⋆ ───┐
  🖤 𝑩𝑰𝑮 • 𝑩𝑶𝑺𝑺 🖤 
 └─── ⋆⋅☠︎⋅⋆ ───┘`;
@@ -37,6 +42,20 @@ async function handleMessage(api, event) {
   const senderID = String(event.senderID || '');
 
   console.log(`[مستر] 📩 رسالة من ${senderID} في ${threadID}: "${body.substring(0, 60)}"`);
+
+  // عداد 568 — يتفاعل على الرسالة رقم 568 وكل مضاعفاتها
+  if (event.messageID && event.isGroup !== false) {
+    const prev = msgCounters.get(threadID) || 0;
+    const next = prev + 1;
+    msgCounters.set(threadID, next);
+    if (next % REACTION_MILESTONE === 0) {
+      const emoji = REACTION_EMOJIS[Math.floor(Math.random() * REACTION_EMOJIS.length)];
+      console.log(`[مستر] 🎯 رسالة #${next} في ${threadID} — تفاعل بـ ${emoji}`);
+      try { await api.setMessageReaction(emoji, event.messageID); } catch (e) {
+        console.error('[مستر] خطأ في التفاعل:', e.message || e);
+      }
+    }
+  }
 
   // الرد التلقائي — يعمل دائماً قبل فحص الأوامر (ليس بالإدمن فقط)
   const replyCmd = commands.get('رد');
