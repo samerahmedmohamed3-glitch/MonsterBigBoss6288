@@ -86,9 +86,43 @@ function getTextForCycle(index) {
 }
 
 const activeLoops = new Map();
+let _reqCounter = 0;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// دالة مخصصة للكتابة — تُجبر is_group_thread=1 لأن ws3-fca يكشف الجروب بطول >= 16
+// لكن جروباتنا 15 رقم فيُرسلها كـ private خطأً
+async function sendTyping(api, threadID, isTyping) {
+  try {
+    const mqttClient = api.ctx && api.ctx.mqttClient;
+    if (!mqttClient) {
+      // fallback للدالة الأصلية
+      await api.sendTypingIndicator(isTyping, threadID);
+      return;
+    }
+    const wsContent = {
+      app_id: 2220391788200892,
+      payload: JSON.stringify({
+        label: 3,
+        payload: JSON.stringify({
+          thread_key: String(threadID),
+          is_group_thread: 1,       // ← دائماً 1 لأننا نشتغل في جروبات
+          is_typing: isTyping ? 1 : 0,
+          attribution: 0
+        }),
+        version: 5849951561777440
+      }),
+      request_id: ++_reqCounter,
+      type: 4
+    };
+    await new Promise((resolve, reject) =>
+      mqttClient.publish('/ls_req', JSON.stringify(wsContent), {}, (err) => err ? reject(err) : resolve())
+    );
+  } catch (e) {
+    console.error(`[قصف] خطأ typing:`, e.message || e);
+  }
 }
 
 async function spamLoop(api, threadID) {
@@ -98,19 +132,19 @@ async function spamLoop(api, threadID) {
       const text = getTextForCycle(cycleIndex);
       const delay = getDelayForCycle(cycleIndex);
 
-      // محاكاة الكتابة البشرية قبل الإرسال (3-6 ثواني)
+      // محاكاة الكتابة البشرية (3-6 ثواني)
       const typingTime = 3000 + Math.floor(Math.random() * 3000);
-      try { await api.sendTypingIndicator(true, threadID); } catch (e) {}
+      await sendTyping(api, threadID, true);
       await sleep(typingTime);
-      try { await api.sendTypingIndicator(false, threadID); } catch (e) {}
+      await sendTyping(api, threadID, false);
 
       await api.sendMessage(text, threadID);
-      console.log(`[قصف] ✍️ إرسال الجريدة #${cycleIndex + 1} (كتابة ${typingTime/1000}ث) بعد ${delay/1000}ث في ${threadID}`);
+      console.log(`[قصف] ✍️ جريدة #${cycleIndex + 1} (كتابة ${(typingTime/1000).toFixed(1)}ث) | تأخير ${(delay/1000).toFixed(0)}ث`);
       await sleep(delay);
       cycleIndex++;
     } catch (e) {
       console.error(`[قصف] خطأ في الإرسال:`, e.message || e);
-      try { await api.sendTypingIndicator(false, threadID); } catch (ex) {}
+      await sendTyping(api, threadID, false);
       await sleep(5000);
     }
   }
