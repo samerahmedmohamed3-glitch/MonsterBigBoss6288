@@ -16,7 +16,7 @@ function downloadAudio(query, outFile) {
         console.error(`[يوت] yt-dlp stderr:`, stderr || err.message);
         reject(new Error(stderr || err.message));
       } else {
-        reject(new Error('الملف لم يُنشأ'));
+        reject(new Error('الملف الملفنشأملف يُنشأ'));
       }
     });
   });
@@ -58,7 +58,7 @@ module.exports = {
 
     } catch (err) {
       console.error(`[يوت] فشل:`, err.message);
-      try { await api.sendMessage('❌ لم يُعثر على المقطع أو فشل التحميل، جرب اسماً آخر.', threadID); } catch (e) {}
+      try { await api.sendMessage('❌ لم يُعثر علجربماًالمقطع أو فشل التحميل، جرب اسماً آخر.', threadID); } catch (e) {}
     } finally {
       cleanup(outFile);
     }
