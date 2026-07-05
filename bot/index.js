@@ -127,37 +127,21 @@ function startBot() {
   if (isRestarting) return;
 
   const appstatePath = path.join(__dirname, 'appstate.json');
+  const email = process.env.FACEBOOK_EMAIL;
+  const password = process.env.FACEBOOK_PASSWORD;
 
-  // لو الملف مش موجود → ننتظر ونحاول مجدداً
-  if (!fs.existsSync(appstatePath)) {
-    console.error('[مستر] ❌ appstate.json غير موجود — إعادة المحاولة بعد 30 ثانية');
-    setTimeout(startBot, 30000);
-    return;
-  }
+  const loginOptions = {
+    listenEvents: true,
+    selfListen: false,
+    autoMarkDelivery: false,
+    autoMarkRead: false,
+    forceLogin: false,
+    autoReconnect: true,
+    online: true
+  };
 
-  let appstate;
-  try {
-    appstate = JSON.parse(fs.readFileSync(appstatePath, 'utf8'));
-  } catch (e) {
-    console.error('[مستر] ❌ خطأ في قراءة appstate.json:', e.message, '— إعادة بعد 30 ثانية');
-    setTimeout(startBot, 30000);
-    return;
-  }
-
-  console.log('[مستر] 🚀 جاري تسجيل الدخول...');
-
-  login(
-    { appState: appstate },
-    {
-      listenEvents: true,
-      selfListen: false,
-      autoMarkDelivery: false,
-      autoMarkRead: false,
-      forceLogin: false,
-      autoReconnect: true,
-      online: true
-    },
-    (err, api) => {
+  // ─── دالة معالجة نتيجة تسجيل الدخول (مشتركة بين الطريقتين) ───
+  const handleLoginResult = (err, api) => {
       if (err) {
         const errStr = JSON.stringify(err);
         console.error('[مستر] ❌ فشل تسجيل الدخول:', errStr);
@@ -224,8 +208,33 @@ function startBot() {
       console.log('[مستر]   • رد [كلمة]» [رد]');
       console.log('[مستر]   • يوت [اسم المقطع]');
       console.log('[مستر] ─────────────────────────────────');
+  };
+
+  // ─── اختيار طريقة تسجيل الدخول ───
+  if (email && password) {
+    // الطريقة الأولى: إيميل وكلمة مرور من متغيرات البيئة
+    console.log('[مستر] 🔑 تسجيل الدخول بالإيميل وكلمة المرور...');
+    login({ email, password }, loginOptions, handleLoginResult);
+  } else {
+    // الطريقة الثانية (احتياطية): ملف appstate.json
+    if (!fs.existsSync(appstatePath)) {
+      console.error('[مستر] ❌ لا يوجد FACEBOOK_EMAIL/PASSWORD ولا appstate.json — إعادة المحاولة بعد 30 ثانية');
+      setTimeout(startBot, 30000);
+      return;
     }
-  );
+
+    let appstate;
+    try {
+      appstate = JSON.parse(fs.readFileSync(appstatePath, 'utf8'));
+    } catch (e) {
+      console.error('[مستر] ❌ خطأ في قراءة appstate.json:', e.message, '— إعادة بعد 30 ثانية');
+      setTimeout(startBot, 30000);
+      return;
+    }
+
+    console.log('[مستر] 🚀 تسجيل الدخول عبر appstate.json...');
+    login({ appState: appstate }, loginOptions, handleLoginResult);
+  }
 }
 
 // ─── مستمع الأحداث ───
