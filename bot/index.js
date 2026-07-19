@@ -74,6 +74,29 @@ let botApi = null;
 let msgEmitter = null;
 let isRestarting = false;
 let reconnectAttempts = 0;
+let botUserID = null;
+let botStartTime = Date.now();
+
+// ─── كتابة حالة البوت إلى ملف مشترك ───
+function writeBotState(loggedIn, extra = {}) {
+  try {
+    const stateFile = path.join(__dirname, 'bot-state.json');
+    const state = {
+      loggedIn,
+      userID: botUserID,
+      userName: null,
+      uptime: Math.floor((Date.now() - botStartTime) / 1000),
+      reconnectAttempts,
+      lastUpdated: new Date().toISOString(),
+      status: loggedIn ? 'متصل' : 'غير متصل',
+      ...extra
+    };
+    fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+  } catch (e) {}
+}
+
+// تحديث دوري للحالة كل 10 ثواني
+setInterval(() => writeBotState(!!botApi), 10000);
 
 // ─── Heartbeat كل 30 ثانية ───
 let heartbeatInterval = null;
@@ -184,6 +207,12 @@ function startBot() {
       isRestarting = false;
       reconnectAttempts = 0;
       botApi = api;
+
+      // استخراج ID الحساب وكتابة الحالة
+      try {
+        botUserID = api.getCurrentUserID ? api.getCurrentUserID() : null;
+      } catch (e) {}
+      writeBotState(true, { status: 'متصل ويعمل' });
 
       // حفظ فوري للـ appstate
       try {

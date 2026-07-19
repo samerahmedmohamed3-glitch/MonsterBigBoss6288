@@ -34,6 +34,18 @@ function loadCommands() {
   console.log(`[مستر] تم تحميل ${commands.size} أمر.`);
 }
 
+// ─── التحقق من تفعيل الأمر في commands-config.json ───
+function isCommandEnabled(name) {
+  try {
+    const configPath = path.join(__dirname, 'commands-config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (name in config) return config[name].enabled !== false;
+    return true; // غير موجود في الملف = مفعّل افتراضياً
+  } catch (e) {
+    return true; // خطأ في القراءة = مفعّل افتراضياً
+  }
+}
+
 async function handleMessage(api, event) {
   if (!event || !event.body) return;
 
@@ -68,6 +80,7 @@ async function handleMessage(api, event) {
   // أوامر محمية: يستخدمها الإدمن فقط
   if (body === 'قصف' || body === 'قصف ايقاف' || body === 'قصف إيقاف') {
     if (!isAdmin(senderID)) return;
+    if (!isCommandEnabled('قصف')) return;
     const cmd = commands.get('قصف');
     if (cmd) cmd.execute(api, event).catch(e =>
       console.error('[مستر] خطأ في قصف:', e.message)
@@ -77,6 +90,7 @@ async function handleMessage(api, event) {
 
   if (body.startsWith('كاتش ') || body.startsWith('مجموعة ') || body.startsWith('جروب ')) {
     if (!isAdmin(senderID)) return;
+    if (!isCommandEnabled('كاتش')) return;
     const cmd = commands.get('كاتش');
     if (cmd) cmd.execute(api, event).catch(e =>
       console.error('[مستر] خطأ في كاتش/مجموعة:', e.message)
@@ -86,6 +100,7 @@ async function handleMessage(api, event) {
 
   if (body.startsWith('رد ') || body === 'رد قائمة') {
     if (!isAdmin(senderID)) return;
+    if (!isCommandEnabled('رد')) return;
     const cmd = commands.get('رد');
     if (cmd) cmd.execute(api, event).catch(e =>
       console.error('[مستر] خطأ في رد:', e.message)
@@ -94,6 +109,7 @@ async function handleMessage(api, event) {
   }
 
   if (body.startsWith('يوت ')) {
+    if (!isCommandEnabled('يوت')) return;
     const cmd = commands.get('يوت');
     if (cmd) cmd.execute(api, event).catch(e =>
       console.error('[مستر] خطأ في يوت:', e.message)
