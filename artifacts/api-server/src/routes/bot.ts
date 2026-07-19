@@ -77,7 +77,19 @@ router.post("/bot/cookies", async (req, res): Promise<void> => {
   try {
     writeJsonFile(APPSTATE_FILE, cookies);
     logger.info("Bot appstate updated via control panel");
-    res.json({ success: true, message: "تم تحديث الكوكيز. البوت سيعيد الاتصال تلقائياً." });
+
+    // أبلغ البوت بإعادة الاتصال عبر الـ internal server على port 3000
+    try {
+      const botPort = process.env.BOT_INTERNAL_PORT || "3000";
+      const resp = await fetch(`http://localhost:${botPort}/reconnect`, { method: "POST" });
+      if (resp.ok) {
+        logger.info("Bot reconnect triggered successfully");
+      }
+    } catch (fetchErr) {
+      logger.warn({ fetchErr }, "Could not reach bot internal server — bot will reconnect on next cycle");
+    }
+
+    res.json({ success: true, message: "تم تحديث الكوكيز. البوت يعيد الاتصال الآن..." });
   } catch (err) {
     logger.error({ err }, "Failed to write appstate file");
     res.status(500).json({ error: "فشل في حفظ الكوكيز" });

@@ -40,6 +40,13 @@ app.get('/', (req, res) => {
 
 app.get('/ping', (req, res) => res.send('pong - مستر حي ويعمل 💀'));
 
+// endpoint لإعادة الاتصال فقط (بعد حفظ الكوكيز من خارج)
+app.post('/reconnect', (req, res) => {
+  console.log('[مستر] 🔄 طلب إعادة اتصال وارد');
+  res.json({ success: true, message: 'جاري إعادة الاتصال...' });
+  setTimeout(() => scheduleRestart(1000), 100);
+});
+
 app.get('/testsend', async (req, res) => {
   const threadID = req.query.thread;
   if (!threadID || !botApi) return res.status(400).json({ error: 'bot not ready' });

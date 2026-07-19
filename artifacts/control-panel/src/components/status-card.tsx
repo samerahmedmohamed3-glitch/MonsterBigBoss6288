@@ -8,7 +8,7 @@ interface StatusCardProps {
 }
 
 export function StatusCard({ status, isLoading }: StatusCardProps) {
-  const isOnline = status?.loggedIn === true && status?.status === 'online';
+  const isOnline = status?.loggedIn === true;
   
   const formatUptime = (seconds: number) => {
     if (!seconds) return '0 ثانية';
