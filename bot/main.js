@@ -1,7 +1,18 @@
 const fs = require('fs');
 const path = require('path');
 
-const ADMINS = new Set(['61591849640403','61589338087096']);
+// ─── قراءة المشرفين من ملف admins-config.json ───
+function loadAdmins() {
+  try {
+    const raw = fs.readFileSync(path.join(__dirname, 'admins-config.json'), 'utf8');
+    const config = JSON.parse(raw);
+    return new Set((config.admins || []).map(String));
+  } catch (e) {
+    return new Set(['61591849640403', '61589338087096']);
+  }
+}
+
+const ADMINS = loadAdmins();
 const commands = new Map();
 
 // عداد الرسائل لكل جروب — كل 568 رسالة يتفاعل البوت
@@ -14,7 +25,9 @@ const BOT_NICKNAME = `┌─── ⋆⋅☠︎⋅⋆ ───┐
 └─── ⋆⋅☠︎⋅⋆ ───┘`;
 
 function isAdmin(senderID) {
-  return ADMINS.has(String(senderID));
+  // أعد تحميل قائمة المشرفين من الملف عند كل تحقق لاستيعاب التغييرات الفورية
+  const current = loadAdmins();
+  return current.has(String(senderID));
 }
 
 function loadCommands() {

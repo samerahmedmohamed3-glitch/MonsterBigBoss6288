@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './adminInput';
+export * from './adminList';
 export * from './botCommand';
 export * from './botStatus';
 export * from './cookiesInput';

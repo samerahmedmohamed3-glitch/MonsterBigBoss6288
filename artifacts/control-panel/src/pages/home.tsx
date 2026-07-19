@@ -3,6 +3,7 @@ import { useGetBotStatus, getGetBotStatusQueryKey } from '@workspace/api-client-
 import { StatusCard } from '@/components/status-card';
 import { CookieForm } from '@/components/cookie-form';
 import { CommandsList } from '@/components/commands-list';
+import { AdminsList } from '@/components/admins-list';
 
 export default function Home() {
   // Auto-refresh status every 5 seconds
@@ -32,8 +33,16 @@ export default function Home() {
         <div className="w-full h-px bg-gradient-to-r from-transparent via-border to-transparent my-2 opacity-50 z-10 relative"></div>
 
         {/* Section 2: Commands Control */}
-        <div className="flex-1 z-10 relative pb-10">
+        <div className="flex-1 z-10 relative">
           <CommandsList />
+        </div>
+
+        {/* Decorative Divider */}
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-border to-transparent my-6 opacity-50 z-10 relative"></div>
+
+        {/* Section 3: Admins Management */}
+        <div className="z-10 relative pb-10">
+          <AdminsList />
         </div>
         
         {/* Footer */}

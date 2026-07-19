@@ -82,6 +82,67 @@ paths:
                 items:
                   $ref: "#/components/schemas/BotCommand"
 
+  /bot/admins:
+    get:
+      operationId: getBotAdmins
+      tags: [bot]
+      summary: List all admin IDs
+      responses:
+        "200":
+          description: Admin list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminList"
+    post:
+      operationId: addBotAdmin
+      tags: [bot]
+      summary: Add an admin ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminInput"
+      responses:
+        "200":
+          description: Admin added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminList"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bot/admins/{id}:
+    delete:
+      operationId: removeBotAdmin
+      tags: [bot]
+      summary: Remove an admin ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Admin removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminList"
+        "404":
+          description: Admin not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /bot/commands/{name}/toggle:
     post:
       operationId: toggleBotCommand
@@ -177,6 +238,24 @@ components:
         - name
         - enabled
         - description
+
+    AdminList:
+      type: object
+      properties:
+        admins:
+          type: array
+          items:
+            type: string
+      required:
+        - admins
+
+    AdminInput:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
 
     ErrorResponse:
       type: object

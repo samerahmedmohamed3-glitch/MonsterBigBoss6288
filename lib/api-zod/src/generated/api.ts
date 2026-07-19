@@ -60,6 +60,38 @@ export const GetBotCommandsResponse = zod.array(GetBotCommandsResponseItem)
 
 
 /**
+ * @summary List all admin IDs
+ */
+export const GetBotAdminsResponse = zod.object({
+  "admins": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Add an admin ID
+ */
+export const AddBotAdminBody = zod.object({
+  "id": zod.string()
+})
+
+export const AddBotAdminResponse = zod.object({
+  "admins": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Remove an admin ID
+ */
+export const RemoveBotAdminParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RemoveBotAdminResponse = zod.object({
+  "admins": zod.array(zod.string())
+})
+
+
+/**
  * @summary Enable or disable a bot command
  */
 export const ToggleBotCommandParams = zod.object({

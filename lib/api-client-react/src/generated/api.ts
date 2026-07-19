@@ -20,6 +20,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdminInput,
+  AdminList,
   BotCommand,
   BotStatus,
   CookiesInput,
@@ -344,6 +346,224 @@ export function useGetBotCommands<TData = Awaited<ReturnType<typeof getBotComman
 
 
 
+
+export const getGetBotAdminsUrl = () => {
+
+
+
+
+  return `/api/bot/admins`
+}
+
+/**
+ * @summary List all admin IDs
+ */
+export const getBotAdmins = async ( options?: RequestInit): Promise<AdminList> => {
+
+  return customFetch<AdminList>(getGetBotAdminsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBotAdminsQueryKey = () => {
+    return [
+    `/api/bot/admins`
+    ] as const;
+    }
+
+
+export const getGetBotAdminsQueryOptions = <TData = Awaited<ReturnType<typeof getBotAdmins>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBotAdmins>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBotAdminsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBotAdmins>>> = ({ signal }) => getBotAdmins({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBotAdmins>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBotAdminsQueryResult = NonNullable<Awaited<ReturnType<typeof getBotAdmins>>>
+export type GetBotAdminsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all admin IDs
+ */
+
+export function useGetBotAdmins<TData = Awaited<ReturnType<typeof getBotAdmins>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBotAdmins>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBotAdminsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAddBotAdminUrl = () => {
+
+
+
+
+  return `/api/bot/admins`
+}
+
+/**
+ * @summary Add an admin ID
+ */
+export const addBotAdmin = async (adminInput: AdminInput, options?: RequestInit): Promise<AdminList> => {
+
+  return customFetch<AdminList>(getAddBotAdminUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      adminInput,)
+  }
+);}
+
+
+
+
+export const getAddBotAdminMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addBotAdmin>>, TError,{data: BodyType<AdminInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addBotAdmin>>, TError,{data: BodyType<AdminInput>}, TContext> => {
+
+const mutationKey = ['addBotAdmin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addBotAdmin>>, {data: BodyType<AdminInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  addBotAdmin(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddBotAdminMutationResult = NonNullable<Awaited<ReturnType<typeof addBotAdmin>>>
+    export type AddBotAdminMutationBody = BodyType<AdminInput>
+    export type AddBotAdminMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Add an admin ID
+ */
+export const useAddBotAdmin = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addBotAdmin>>, TError,{data: BodyType<AdminInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addBotAdmin>>,
+        TError,
+        {data: BodyType<AdminInput>},
+        TContext
+      > => {
+      return useMutation(getAddBotAdminMutationOptions(options));
+    }
+
+export const getRemoveBotAdminUrl = (id: string,) => {
+
+
+
+
+  return `/api/bot/admins/${id}`
+}
+
+/**
+ * @summary Remove an admin ID
+ */
+export const removeBotAdmin = async (id: string, options?: RequestInit): Promise<AdminList> => {
+
+  return customFetch<AdminList>(getRemoveBotAdminUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getRemoveBotAdminMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeBotAdmin>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeBotAdmin>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['removeBotAdmin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeBotAdmin>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  removeBotAdmin(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveBotAdminMutationResult = NonNullable<Awaited<ReturnType<typeof removeBotAdmin>>>
+
+    export type RemoveBotAdminMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Remove an admin ID
+ */
+export const useRemoveBotAdmin = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeBotAdmin>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeBotAdmin>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRemoveBotAdminMutationOptions(options));
+    }
 
 export const getToggleBotCommandUrl = (name: string,) => {
 

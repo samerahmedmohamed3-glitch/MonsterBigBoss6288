@@ -39,6 +39,14 @@ export interface BotCommand {
   description: string;
 }
 
+export interface AdminList {
+  admins: string[];
+}
+
+export interface AdminInput {
+  id: string;
+}
+
 export interface ErrorResponse {
   error: string;
 }
