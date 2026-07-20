@@ -8,7 +8,13 @@ process.on('uncaughtException', (err) => {
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('[مستر] 🔴 وعد غير معالج:', reason && reason.message ? reason.message : String(reason));
+  const msg = reason && reason.message ? reason.message : String(reason);
+  // أخطاء cookie domain في ws3-fca غير مميتة — تجاهلها بدون إعادة تشغيل
+  if (msg.includes('Cookie not in this host') || msg.includes("host's domain")) {
+    console.warn('[مستر] ⚠️ تحذير cookie domain (ws3-fca) — تجاهل بدون إعادة تشغيل');
+    return;
+  }
+  console.error('[مستر] 🔴 وعد غير معالج:', msg);
   console.log('[مستر] 🟢 إعادة الاتصال خلال 15 ثانية');
   isRestarting = false;
   scheduleRestart(15000);
@@ -45,10 +51,20 @@ app.get('/', (req, res) => {
 app.get('/ping', (req, res) => res.send('pong - مستر حي ويعمل 💀'));
 
 // endpoint لإعادة الاتصال فقط (بعد حفظ الكوكيز من خارج)
+// debounce: نتجاهل أي طلب خلال 10 ثوان من آخر طلب
+let lastReconnectRequest = 0;
 app.post('/reconnect', (req, res) => {
+  const now = Date.now();
+  if (now - lastReconnectRequest < 10000) {
+    console.log('[مستر] ⏸️ طلب إعادة اتصال مُجمَّد (10 ثوان cooldown)');
+    res.json({ success: true, message: 'طلب مُسجَّل — سيُطبَّق خلال قليل' });
+    return;
+  }
+  lastReconnectRequest = now;
   console.log('[مستر] 🔄 طلب إعادة اتصال وارد');
   res.json({ success: true, message: 'جاري إعادة الاتصال...' });
-  setTimeout(() => scheduleRestart(1000), 100);
+  // تأخير 3 ثوان للتأكد من اكتمال حفظ الملف ثم إعادة الاتصال
+  setTimeout(() => scheduleRestart(3000), 200);
 });
 
 app.get('/testsend', async (req, res) => {

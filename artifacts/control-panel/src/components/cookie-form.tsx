@@ -40,10 +40,11 @@ export function CookieForm() {
             // Force status refresh immediately
             queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
           },
-          onError: (err) => {
+          onError: (err: any) => {
+            const msg = err?.data?.error || err?.message || "حدث خطأ أثناء تحديث الكوكيز";
             toast({
               title: "فشل التحديث",
-              description: err.error?.error || "حدث خطأ أثناء تحديث الكوكيز",
+              description: msg,
               variant: "destructive",
             });
           },
