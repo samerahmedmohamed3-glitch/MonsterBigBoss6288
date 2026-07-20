@@ -87,6 +87,7 @@ let isRestarting = false;
 let reconnectAttempts = 0;
 let botUserID = null;
 let botStartTime = Date.now();
+let msgCount = 0;
 
 // ─── كتابة حالة البوت إلى ملف مشترك ───
 function writeBotState(loggedIn, extra = {}) {
@@ -144,16 +145,27 @@ function startMemorySweeper(api) {
   }, 10 * 60 * 1000);
 }
 
-// ─── حفظ appstate كل 30 دقيقة ───
+// ─── حفظ appstate بشكل متكرر لتجديد الجلسة تلقائياً ───
+// فيسبوك يجدد tokens الجلسة (xs, fr) باستمرار — حفظها دورياً يمنع انتهاء الصلاحية
+let appstateSaverInterval = null;
+
+function saveAppstate(api, reason) {
+  try {
+    const state = api.getAppState();
+    if (state && state.length > 0) {
+      fs.writeFileSync(path.join(__dirname, 'appstate.json'), JSON.stringify(state, null, 2));
+      if (reason) console.log(`[مستر] 💾 تم تجديد الجلسة (${reason})`);
+    }
+  } catch (e) {
+    console.error('[مستر] ⚠️ فشل حفظ appstate:', e.message);
+  }
+}
+
 function startAppstateSaver(api) {
-  setInterval(() => {
-    try {
-      const state = api.getAppState();
-      if (state && state.length > 0) {
-        fs.writeFileSync(path.join(__dirname, 'appstate.json'), JSON.stringify(state, null, 2));
-      }
-    } catch (e) {}
-  }, 30 * 60 * 1000);
+  if (appstateSaverInterval) clearInterval(appstateSaverInterval);
+  // حفظ كل 5 دقائق بدل 30 — يضمن دائماً أحدث tokens
+  appstateSaverInterval = setInterval(() => saveAppstate(api, 'دوري'), 5 * 60 * 1000);
+  console.log('[مستر] ⏱️ تجديد الجلسة كل 5 دقائق مفعّل');
 }
 
 // ─── المحرك الرئيسي: يعيد المحاولة دائماً ───
@@ -300,6 +312,9 @@ async function startListening(api) {
         } else {
           handleEvent(api, event);
         }
+        // حفظ الجلسة بعد كل 10 رسائل لضمان تجديد الـ tokens
+        msgCount++;
+        if (msgCount % 10 === 0) saveAppstate(api, `بعد ${msgCount} رسالة`);
       } catch (e) {
         console.error('[مستر] ⚠️ خطأ في معالجة الحدث:', e.message);
       }
@@ -320,6 +335,7 @@ function scheduleRestart(delay) {
   isRestarting = true;
 
   try { if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; } } catch (e) {}
+  try { if (appstateSaverInterval) { clearInterval(appstateSaverInterval); appstateSaverInterval = null; } } catch (e) {}
   try { if (msgEmitter && typeof msgEmitter.stop === 'function') msgEmitter.stop(); } catch (e) {}
 
   msgEmitter = null;
