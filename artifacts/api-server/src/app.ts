@@ -31,4 +31,19 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
+// ─── Global error middleware: يمسك أي خطأ من أي route ───
+app.use(
+  (
+    err: Error,
+    _req: import("express").Request,
+    res: import("express").Response,
+    _next: import("express").NextFunction,
+  ) => {
+    logger.error({ err }, "Unhandled route error");
+    if (!res.headersSent) {
+      res.status(500).json({ error: "خطأ داخلي في الخادم" });
+    }
+  },
+);
+
 export default app;

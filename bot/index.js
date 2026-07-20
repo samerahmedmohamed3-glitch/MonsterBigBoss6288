@@ -2,12 +2,16 @@
 process.on('uncaughtException', (err) => {
   console.error('[مستر] 🔴 خطأ غير متوقع:', err && err.message ? err.message : String(err));
   console.log('[مستر] 🟢 استمرار... إعادة الاتصال خلال 10 ثواني');
+  // ⚠️ إعادة ضبط isRestarting بالقوة حتى لو كانت جارية — البوت لا يتجمد أبداً
+  isRestarting = false;
   scheduleRestart(10000);
 });
 
 process.on('unhandledRejection', (reason) => {
   console.error('[مستر] 🔴 وعد غير معالج:', reason && reason.message ? reason.message : String(reason));
-  console.log('[مستر] 🟢 استمرار...');
+  console.log('[مستر] 🟢 إعادة الاتصال خلال 15 ثانية');
+  isRestarting = false;
+  scheduleRestart(15000);
 });
 
 process.on('SIGTERM', () => {
@@ -311,6 +315,7 @@ async function startListening(api) {
 
 // ─── جدولة إعادة الاتصال: لا تُكرر إذا كانت جارية ───
 function scheduleRestart(delay) {
+  // ⚠️ لا نتجاهل الطلب إذا أتى من uncaughtException — isRestarting تُعاد ضبطها قبل الاستدعاء
   if (isRestarting) return;
   isRestarting = true;
 
@@ -319,9 +324,11 @@ function scheduleRestart(delay) {
 
   msgEmitter = null;
   botApi = null;
+  writeBotState(false);
 
+  // تأخير ثابت بحد أقصى 120 ثانية — لا مضاعفة تتراكم عبر جلسات ناجحة
+  const actualDelay = Math.min(delay, 120000);
   reconnectAttempts++;
-  const actualDelay = Math.min(delay * Math.max(reconnectAttempts, 1), 120000);
   console.log(`[مستر] ⏳ إعادة الاتصال بعد ${actualDelay / 1000}ث (محاولة ${reconnectAttempts})`);
 
   setTimeout(() => {
